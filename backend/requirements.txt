@@ -1,0 +1,17 @@
+fastapi==0.115.6
+uvicorn[standard]==0.32.1
+sqlalchemy==2.0.45
+greenlet==3.3.2
+asyncpg==0.31.0
+alembic==1.14.0
+pydantic==2.12.3
+email-validator==2.2.0
+pydantic-settings==2.7.1
+python-jose[cryptography]==3.3.0
+bcrypt==5.0.0
+python-multipart==0.0.12
+geoalchemy2==0.15.2
+redis==5.2.1
+websockets==14.1
+python-dotenv==1.0.1
+httpx==0.28.1
