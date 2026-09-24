@@ -18,6 +18,8 @@ class OrderCreate(BaseModel):
     payment_method: PaymentMethod
     items: list[OrderItemCreate] = Field(min_length=1)
     notes: str | None = None
+    promo_code: str | None = None
+    tip_amount: float = Field(default=0, ge=0)
 
 
 class OrderItemOut(BaseModel):
@@ -43,6 +45,10 @@ class OrderOut(BaseModel):
     subtotal: float
     delivery_fee: float
     commission_amount: float
+    delivery_commission_amount: float
+    promotion_id: uuid.UUID | None
+    discount_amount: float
+    tip_amount: float
     total: float
     notes: str | None
     created_at: datetime

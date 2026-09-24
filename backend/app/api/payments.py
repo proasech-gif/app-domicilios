@@ -110,17 +110,17 @@ async def wompi_webhook(request: Request, db: Annotated[AsyncSession, Depends(ge
         return {"received": True}
 
     signature_ok = wompi_service.verify_webhook_signature(event)
-    is_sandbox_event = event.get("environment") == "test"
 
     if not signature_ok:
-        print("=== AVISO: FIRMA WOMPI NO COINCIDE (revisar antes de producción) ===")
-        print("Entorno del evento:", event.get("environment"))
+        # IMPORTANTE: antes esto se saltaba si el propio mensaje decía
+        # "environment": "test" — pero ese campo lo controla quien envía la
+        # petición, no nuestro servidor, así que cualquiera podía falsificarlo
+        # para marcar un pedido como pagado sin pagar. Ahora SIEMPRE se exige
+        # firma válida, sin excepciones basadas en datos del mensaje entrante.
+        print("=== AVISO: FIRMA WOMPI NO COINCIDE, webhook rechazado ===")
         print("Referencia:", event.get("data", {}).get("transaction", {}).get("reference"))
         print("=====================================================================")
-        if not is_sandbox_event:
-            # En producción SÍ bloqueamos: sin firma válida, no confiamos en el webhook.
-            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Firma de webhook inválida")
-        # En sandbox dejamos pasar para no bloquear las pruebas mientras se ajusta la firma.
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Firma de webhook inválida")
 
     transaction = event["data"]["transaction"]
     reference = transaction["reference"]

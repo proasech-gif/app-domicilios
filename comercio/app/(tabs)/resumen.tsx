@@ -99,6 +99,9 @@ export default function ResumenScreen() {
     return (
       <View style={styles.center}>
         <Text style={styles.empty}>Todavía no tienes un comercio creado.</Text>
+        <TouchableOpacity style={styles.registerButton} onPress={() => router.push("/restaurante/nuevo")}>
+          <Text style={styles.registerButtonText}>+ Registrar mi comercio</Text>
+        </TouchableOpacity>
       </View>
     );
   }
@@ -177,6 +180,14 @@ const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: "#fff" },
   center: { flex: 1, justifyContent: "center", alignItems: "center" },
   empty: { textAlign: "center", color: "#94a3b8", marginTop: 20, paddingHorizontal: 16 },
+  registerButton: {
+    backgroundColor: "#0F766E",
+    borderRadius: 12,
+    paddingVertical: 14,
+    paddingHorizontal: 24,
+    marginTop: 20,
+  },
+  registerButtonText: { color: "#fff", fontWeight: "700", fontSize: 15 },
   header: {
     flexDirection: "row",
     justifyContent: "space-between",

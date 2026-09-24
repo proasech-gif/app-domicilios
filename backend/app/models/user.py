@@ -27,6 +27,9 @@ class User(Base):
     full_name: Mapped[str] = mapped_column(String(200), nullable=False)
     profile_photo_url: Mapped[str | None] = mapped_column(String)
     is_active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
+    # Token de notificaciones push de Expo para el dispositivo donde el usuario
+    # inició sesión por última vez. Null si nunca lo registró o si rechazó el permiso.
+    expo_push_token: Mapped[str | None] = mapped_column(String(255))
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), onupdate=func.now()

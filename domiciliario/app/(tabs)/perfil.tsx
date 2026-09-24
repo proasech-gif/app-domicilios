@@ -1,5 +1,5 @@
 import { useCallback, useState } from "react";
-import { View, Text, TouchableOpacity, StyleSheet, ActivityIndicator, Switch, Alert } from "react-native";
+import { View, Text, TouchableOpacity, StyleSheet, ActivityIndicator, Switch, Alert, Modal, TextInput } from "react-native";
 import { useRouter, useFocusEffect } from "expo-router";
 import { api, clearTokens, User, DeliveryPerson, ApiError } from "@/lib/api";
 
@@ -22,6 +22,9 @@ export default function PerfilScreen() {
   const [user, setUser] = useState<User | null>(null);
   const [profile, setProfile] = useState<DeliveryPerson | null>(null);
   const [toggling, setToggling] = useState(false);
+  const [showBonusModal, setShowBonusModal] = useState(false);
+  const [bonusCode, setBonusCode] = useState("");
+  const [redeemingBonus, setRedeemingBonus] = useState(false);
 
   const load = useCallback(async () => {
     try {
@@ -55,6 +58,25 @@ export default function PerfilScreen() {
   async function handleLogout() {
     await clearTokens();
     router.replace("/login");
+  }
+
+  async function handleRedeemBonus() {
+    if (!bonusCode.trim()) return;
+    setRedeemingBonus(true);
+    try {
+      const result = await api.redeemBonus(bonusCode.trim());
+      if (result.valid && result.amount_credited_cents != null) {
+        Alert.alert("¡Bono canjeado!", `Se acreditaron $${(result.amount_credited_cents / 100).toLocaleString()} a tu billetera.`);
+        setShowBonusModal(false);
+        setBonusCode("");
+      } else {
+        Alert.alert("No se pudo canjear", result.reason || "Código no válido");
+      }
+    } catch (err) {
+      Alert.alert("Error", err instanceof ApiError ? err.message : "No se pudo canjear el bono");
+    } finally {
+      setRedeemingBonus(false);
+    }
   }
 
   if (!user) {
@@ -105,6 +127,46 @@ export default function PerfilScreen() {
       <TouchableOpacity style={styles.logoutButton} onPress={handleLogout}>
         <Text style={styles.logoutText}>Cerrar sesión</Text>
       </TouchableOpacity>
+
+      <TouchableOpacity style={styles.bonusLinkButton} onPress={() => setShowBonusModal(true)}>
+        <Text style={styles.bonusLinkText}>🎁 Canjear un bono</Text>
+      </TouchableOpacity>
+
+      <Modal visible={showBonusModal} animationType="slide" transparent>
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <Text style={styles.modalTitle}>Canjear un bono</Text>
+            <Text style={styles.modalSubtitle}>
+              Escribe el código de bono que te dio la plataforma. Se acredita directo a tu billetera.
+            </Text>
+            <TextInput
+              style={styles.modalInput}
+              placeholder="Código del bono"
+              autoCapitalize="characters"
+              value={bonusCode}
+              onChangeText={setBonusCode}
+            />
+            <View style={styles.modalActions}>
+              <TouchableOpacity
+                style={styles.modalCancelButton}
+                onPress={() => {
+                  setShowBonusModal(false);
+                  setBonusCode("");
+                }}
+              >
+                <Text style={styles.modalCancelText}>Cancelar</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={styles.modalSaveButton}
+                onPress={handleRedeemBonus}
+                disabled={redeemingBonus || !bonusCode.trim()}
+              >
+                <Text style={styles.modalSaveText}>{redeemingBonus ? "Canjeando..." : "Canjear"}</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 }
@@ -165,4 +227,22 @@ const styles = StyleSheet.create({
     paddingHorizontal: 32,
   },
   logoutText: { color: "#dc2626", fontWeight: "600" },
+  bonusLinkButton: {
+    marginTop: 16,
+    backgroundColor: "#fef9c3",
+    borderRadius: 10,
+    paddingVertical: 10,
+    paddingHorizontal: 20,
+  },
+  bonusLinkText: { color: "#a16207", fontWeight: "600", fontSize: 14 },
+  modalOverlay: { flex: 1, backgroundColor: "rgba(0,0,0,0.4)", justifyContent: "flex-end" },
+  modalContent: { backgroundColor: "#fff", borderTopLeftRadius: 16, borderTopRightRadius: 16, padding: 20 },
+  modalTitle: { fontSize: 18, fontWeight: "700", marginBottom: 6, color: "#0f172a" },
+  modalSubtitle: { fontSize: 13, color: "#64748b", marginBottom: 14 },
+  modalInput: { borderWidth: 1, borderColor: "#e2e8f0", borderRadius: 8, paddingHorizontal: 12, paddingVertical: 10, fontSize: 14 },
+  modalActions: { flexDirection: "row", gap: 10, marginTop: 20 },
+  modalCancelButton: { flex: 1, borderWidth: 1, borderColor: "#e2e8f0", borderRadius: 10, paddingVertical: 12, alignItems: "center" },
+  modalCancelText: { color: "#334155", fontWeight: "600" },
+  modalSaveButton: { flex: 1, backgroundColor: "#ea580c", borderRadius: 10, paddingVertical: 12, alignItems: "center" },
+  modalSaveText: { color: "#fff", fontWeight: "700" },
 });

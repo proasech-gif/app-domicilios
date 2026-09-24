@@ -17,6 +17,8 @@ const BUSINESS_TYPES: { value: BusinessType; label: string; emoji: string }[] = 
   { value: "supermercado", label: "Supermercado", emoji: "🛒" },
   { value: "farmacia", label: "Farmacia", emoji: "💊" },
   { value: "tienda", label: "Tienda", emoji: "🏬" },
+  { value: "mascota", label: "Mascotas", emoji: "🐾" },
+  { value: "belleza", label: "Belleza", emoji: "💅" },
 ];
 
 export default function NuevoComercioScreen() {

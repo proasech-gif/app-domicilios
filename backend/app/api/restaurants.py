@@ -2,12 +2,13 @@ import uuid
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, status
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import get_current_user, require_role
 from app.core.database import get_db
 from app.models.enums import ApprovalStatus, BusinessType
+from app.models.rating import Rating
 from app.models.restaurant import Restaurant, Category, Product
 from app.models.user import User, UserRole
 from app.schemas.restaurant import (
@@ -28,6 +29,26 @@ async def _get_owned_restaurant(restaurant_id: uuid.UUID, owner: User, db: Async
     if restaurant.owner_id != owner.id:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="No eres dueño de este comercio")
     return restaurant
+
+
+async def _attach_ratings(db: AsyncSession, restaurants: list[Restaurant]) -> list[Restaurant]:
+    """Le agrega a cada restaurante su promedio de estrellas y cantidad de
+    calificaciones (no son columnas reales, se calculan aparte y se pegan
+    como atributos, para que el schema de salida los pueda leer)."""
+    if not restaurants:
+        return restaurants
+    ids = [r.id for r in restaurants]
+    result = await db.execute(
+        select(Rating.target_id, func.avg(Rating.score), func.count(Rating.id))
+        .where(Rating.target_type == "restaurant", Rating.target_id.in_(ids))
+        .group_by(Rating.target_id)
+    )
+    summary = {row[0]: (round(float(row[1]), 2), row[2]) for row in result.all()}
+    for r in restaurants:
+        avg, total = summary.get(r.id, (None, 0))
+        r.average_rating = avg
+        r.total_ratings = total
+    return restaurants
 
 
 @router.post("", response_model=RestaurantOut, status_code=status.HTTP_201_CREATED)
@@ -63,7 +84,8 @@ async def list_restaurants(
     if business_type:
         query = query.where(Restaurant.business_type == business_type)
     result = await db.execute(query)
-    return result.scalars().all()
+    restaurants = result.scalars().all()
+    return await _attach_ratings(db, list(restaurants))
 
 
 @router.get("/mine", response_model=list[RestaurantOut])
@@ -81,6 +103,7 @@ async def get_restaurant(restaurant_id: uuid.UUID, db: Annotated[AsyncSession, D
     restaurant = result.scalar_one_or_none()
     if not restaurant:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Comercio no encontrado")
+    await _attach_ratings(db, [restaurant])
     return restaurant
 
 

@@ -13,7 +13,10 @@
       "supportsTablet": false
     },
     "android": {
-      "package": "com.domicilios.domiciliario"
+      "package": "com.domicilios.domiciliario",
+      "permissions": [
+        "android.permission.RECORD_AUDIO"
+      ]
     },
     "web": {
       "bundler": "metro"
@@ -29,6 +32,13 @@
         }
       ]
     ],
-    "scheme": "domicilios-domiciliario"
+    "scheme": "domicilios-domiciliario",
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "e5996bbe-7ef9-43fe-83ad-c553cddccb6d"
+      }
+    },
+    "owner": "19821974"
   }
 }

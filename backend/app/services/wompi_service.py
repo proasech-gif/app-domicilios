@@ -8,6 +8,7 @@ y nos notifica el resultado mediante un webhook.
 Documentación: https://docs.wompi.co/docs/colombia/widget-checkout-web/
 """
 import hashlib
+import hmac
 import uuid
 from typing import Any
 from urllib.parse import urlencode
@@ -73,7 +74,7 @@ def verify_webhook_signature(event: dict[str, Any]) -> bool:
         raw = f"{concatenated}{timestamp}{settings.WOMPI_EVENTS_SECRET}"
         expected_checksum = hashlib.sha256(raw.encode()).hexdigest()
 
-        return expected_checksum.lower() == received_checksum.lower()
+        return hmac.compare_digest(expected_checksum.lower(), received_checksum.lower())
     except (KeyError, TypeError):
         return False
 

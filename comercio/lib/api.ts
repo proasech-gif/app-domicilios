@@ -125,6 +125,11 @@ export const api = {
   ) => request<Restaurant>(`/api/restaurants/${id}`, { method: "PATCH", body: JSON.stringify(input) }),
   toggleOpen: (id: string) =>
     request<Restaurant>(`/api/restaurants/${id}/toggle-open`, { method: "PATCH" }),
+  uploadImageBase64: (filename: string, contentType: string, dataBase64: string) =>
+    request<{ url: string }>("/api/uploads/image-base64", {
+      method: "POST",
+      body: JSON.stringify({ filename, content_type: contentType, data_base64: dataBase64 }),
+    }),
 
   // --- Categorías ---
   categories: (restaurantId: string) => request<Category[]>(`/api/restaurants/${restaurantId}/categories`),
@@ -168,7 +173,43 @@ export const api = {
   requestWithdrawal: (input: { amount_cents: number; bank_info: string }) =>
     request<Withdrawal>("/api/wallet/withdrawals", { method: "POST", body: JSON.stringify(input) }),
   myWithdrawals: () => request<Withdrawal[]>("/api/wallet/withdrawals/mine"),
+
+  // --- Cupones ---
+  myPromotions: (restaurantId: string) => request<Promotion[]>(`/api/restaurants/${restaurantId}/promotions`),
+  createPromotion: (restaurantId: string, data: NewPromotionData) =>
+    request<Promotion>(`/api/restaurants/${restaurantId}/promotions`, {
+      method: "POST",
+      body: JSON.stringify(data),
+    }),
+  togglePromotion: (id: string) =>
+    request<Promotion>(`/api/promotions/${id}/toggle`, { method: "PATCH" }),
+  redeemBonus: (code: string) =>
+    request<{ valid: boolean; reason: string | null; amount_credited_cents: number | null }>(
+      `/api/promotions/redeem-bonus?code=${encodeURIComponent(code)}`,
+      { method: "POST" }
+    ),
 };
+
+export interface Promotion {
+  id: string;
+  restaurant_id: string | null;
+  code: string | null;
+  description: string | null;
+  discount_type: "percentage" | "fixed";
+  discount_value: number;
+  starts_at: string | null;
+  ends_at: string | null;
+  is_active: boolean;
+}
+
+export interface NewPromotionData {
+  code: string;
+  description?: string;
+  discount_type: "percentage" | "fixed";
+  discount_value: number;
+  starts_at?: string;
+  ends_at?: string;
+}
 
 export function wsUrl(path: string, token: string): string {
   const base = API_URL.replace(/^http/, "ws");
@@ -197,7 +238,7 @@ export type OrderStatus =
   | "entregado"
   | "cancelado";
 
-export type BusinessType = "restaurante" | "supermercado" | "farmacia" | "tienda";
+export type BusinessType = "restaurante" | "supermercado" | "farmacia" | "tienda" | "mascota" | "belleza";
 
 export interface Restaurant {
   id: string;
@@ -286,4 +327,11 @@ export interface Withdrawal {
   status: "pendiente" | "completado" | "rechazado";
   requested_at: string;
   processed_at: string | null;
+}
+
+export async function registerPushToken(expoPushToken: string) {
+  return request<void>("/api/users/me/push-token", {
+    method: "PATCH",
+    body: JSON.stringify({ expo_push_token: expoPushToken }),
+  });
 }

@@ -1,11 +1,17 @@
+import { useEffect } from "react";
 import { Tabs } from "expo-router";
 import { Text } from "react-native";
+import { registerForPushNotificationsAsync } from "@/lib/notifications";
 
 function TabIcon({ emoji }: { emoji: string }) {
   return <Text style={{ fontSize: 20 }}>{emoji}</Text>;
 }
 
 export default function TabsLayout() {
+  useEffect(() => {
+    registerForPushNotificationsAsync();
+  }, []);
+
   return (
     <Tabs screenOptions={{ tabBarActiveTintColor: "#ea580c", headerTitleAlign: "center" }}>
       <Tabs.Screen

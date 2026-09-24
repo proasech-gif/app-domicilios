@@ -22,6 +22,13 @@
       "expo-router",
       "expo-status-bar"
     ],
-    "scheme": "domicilios-cliente"
+    "scheme": "domicilios-cliente",
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "627e547e-44f9-43f3-8975-7c46637e9833"
+      }
+    },
+    "owner": "19821974"
   }
 }

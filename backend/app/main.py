@@ -2,7 +2,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.core.config import settings
-from app.api import auth, users, restaurants, delivery, admin, orders, chat, addresses, uploads, payments, wallet
+from app.api import auth, users, restaurants, delivery, admin, orders, chat, addresses, uploads, payments, wallet, ratings, reports, promotions
 from app.websockets import router as ws_router
 
 app = FastAPI(
@@ -30,6 +30,12 @@ app.include_router(addresses.router)
 app.include_router(uploads.router)
 app.include_router(payments.router)
 app.include_router(wallet.router)
+app.include_router(ratings.router)
+app.include_router(ratings.public_router)
+app.include_router(reports.router)
+app.include_router(promotions.router)
+app.include_router(promotions.promo_router)
+app.include_router(promotions.admin_promo_router)
 app.include_router(ws_router.router)
 
 

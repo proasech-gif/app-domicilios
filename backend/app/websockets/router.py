@@ -11,6 +11,7 @@ from app.models.delivery_person import DeliveryPerson
 from app.models.order import Order
 from app.models.restaurant import Restaurant
 from app.models.user import User, UserRole
+from app.services.push_service import notify_user
 from app.websockets.manager import manager
 
 router = APIRouter(tags=["websockets"])
@@ -57,6 +58,22 @@ async def _user_can_access_order(user: User, order_id: uuid.UUID, db) -> bool:
         profile = dp.scalar_one_or_none()
         return bool(profile and order.delivery_person_id == profile.id)
     return False
+
+
+async def _order_participant_user_ids(order: Order, db) -> set[uuid.UUID]:
+    """IDs de los usuarios involucrados en un pedido: cliente, dueño del comercio
+    y domiciliario asignado (si ya hay uno)."""
+    ids = {order.customer_id}
+    r = await db.execute(select(Restaurant).where(Restaurant.id == order.restaurant_id))
+    restaurant = r.scalar_one_or_none()
+    if restaurant:
+        ids.add(restaurant.owner_id)
+    if order.delivery_person_id:
+        dp = await db.execute(select(DeliveryPerson).where(DeliveryPerson.id == order.delivery_person_id))
+        profile = dp.scalar_one_or_none()
+        if profile:
+            ids.add(profile.user_id)
+    return ids
 
 
 @router.websocket("/ws/orders/{order_id}")
@@ -107,6 +124,23 @@ async def order_socket(websocket: WebSocket, order_id: uuid.UUID):
                         "sent_at": chat_message.sent_at.isoformat(),
                     },
                 )
+
+                # Avisar por push a los demás participantes del pedido (no al que envió).
+                async with AsyncSessionLocal() as db:
+                    order_result = await db.execute(select(Order).where(Order.id == order_id))
+                    order_for_push = order_result.scalar_one_or_none()
+                    if order_for_push:
+                        participant_ids = await _order_participant_user_ids(order_for_push, db)
+                        participant_ids.discard(user.id)
+                        preview = text if len(text) <= 80 else text[:77] + "..."
+                        for recipient_id in participant_ids:
+                            await notify_user(
+                                db,
+                                recipient_id,
+                                f"Mensaje sobre tu pedido 💬",
+                                preview,
+                                {"order_id": str(order_id), "type": "chat.message"},
+                            )
             # otros tipos de mensaje entrante pueden añadirse aquí (ej. "typing")
     except WebSocketDisconnect:
         pass

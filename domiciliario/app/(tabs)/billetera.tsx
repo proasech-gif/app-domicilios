@@ -75,14 +75,27 @@ export default function BilleteraScreen() {
     );
   }
 
+  const balance = wallet?.balance_cents || 0;
+  const inDebt = balance < 0;
+
   return (
     <View style={styles.container}>
-      <View style={styles.balanceCard}>
-        <Text style={styles.balanceLabel}>Saldo disponible</Text>
-        <Text style={styles.balanceValue}>{formatCOP(wallet?.balance_cents || 0)}</Text>
-        <TouchableOpacity style={styles.withdrawButton} onPress={() => setShowModal(true)}>
-          <Text style={styles.withdrawButtonText}>Solicitar retiro</Text>
-        </TouchableOpacity>
+      <View style={[styles.balanceCard, inDebt && styles.balanceCardDebt]}>
+        <Text style={styles.balanceLabel}>{inDebt ? "Debes a la plataforma" : "Saldo disponible"}</Text>
+        <Text style={[styles.balanceValue, inDebt && styles.balanceValueDebt]}>
+          {formatCOP(Math.abs(balance))}
+        </Text>
+        {inDebt ? (
+          <Text style={styles.debtExplanation}>
+            Recibiste efectivo de clientes que le pertenecía al comercio. Se descuenta
+            automáticamente de tus próximos domicilios pagados en línea, o puedes saldarlo
+            transfiriendo directamente — contacta al administrador.
+          </Text>
+        ) : (
+          <TouchableOpacity style={styles.withdrawButton} onPress={() => setShowModal(true)}>
+            <Text style={styles.withdrawButtonText}>Solicitar retiro</Text>
+          </TouchableOpacity>
+        )}
       </View>
 
       <Text style={styles.historyTitle}>Movimientos</Text>
@@ -142,8 +155,11 @@ const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: "#f8fafc" },
   center: { flex: 1, justifyContent: "center", alignItems: "center" },
   balanceCard: { backgroundColor: "#ea580c", margin: 16, borderRadius: 16, padding: 20, alignItems: "center" },
+  balanceCardDebt: { backgroundColor: "#b91c1c" },
   balanceLabel: { color: "#fed7aa", fontSize: 13, fontWeight: "600" },
   balanceValue: { color: "#fff", fontSize: 32, fontWeight: "800", marginTop: 4 },
+  balanceValueDebt: { color: "#fff" },
+  debtExplanation: { color: "#fee2e2", fontSize: 12, textAlign: "center", marginTop: 10, lineHeight: 17 },
   withdrawButton: { backgroundColor: "#fff", borderRadius: 10, paddingVertical: 10, paddingHorizontal: 24, marginTop: 16 },
   withdrawButtonText: { color: "#ea580c", fontWeight: "700" },
   historyTitle: { fontSize: 14, fontWeight: "700", color: "#334155", paddingHorizontal: 16, marginBottom: 8 },

@@ -29,6 +29,16 @@ class Order(Base):
     subtotal: Mapped[float] = mapped_column(Numeric(10, 2), nullable=False)
     delivery_fee: Mapped[float] = mapped_column(Numeric(10, 2), default=0, nullable=False)
     commission_amount: Mapped[float] = mapped_column(Numeric(10, 2), default=0, nullable=False)
+    # Comisión que se le cobra al domiciliario sobre el valor del domicilio.
+    # Se calcula y se guarda cuando el pedido queda "entregado" (antes de eso
+    # no se sabe con certeza qué domiciliario lo va a entregar, ni su % actual).
+    delivery_commission_amount: Mapped[float] = mapped_column(Numeric(10, 2), default=0, nullable=False)
+    # Cupón aplicado a este pedido, si el cliente usó uno.
+    promotion_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey("promotions.id"))
+    discount_amount: Mapped[float] = mapped_column(Numeric(10, 2), default=0, nullable=False)
+    # Propina opcional del cliente (solo aplica en pagos en línea). Va 100% al
+    # domiciliario, sin comisión de la plataforma.
+    tip_amount: Mapped[float] = mapped_column(Numeric(10, 2), default=0, nullable=False)
     total: Mapped[float] = mapped_column(Numeric(10, 2), nullable=False)
     notes: Mapped[str | None] = mapped_column(Text)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())

@@ -32,6 +32,42 @@ export default function CarritoScreen() {
   const [placing, setPlacing] = useState(false);
   const [showAddressModal, setShowAddressModal] = useState(false);
 
+  // Cupón de descuento
+  const [promoCode, setPromoCode] = useState("");
+  const [checkingPromo, setCheckingPromo] = useState(false);
+  const [appliedPromo, setAppliedPromo] = useState<{
+    code: string;
+    discount_type: "percentage" | "fixed";
+    discount_value: number;
+  } | null>(null);
+  const [promoError, setPromoError] = useState<string | null>(null);
+
+  // Domicilio real (según distancia y hora) y propina
+  const [deliveryFee, setDeliveryFee] = useState<number | null>(null);
+  const [loadingFee, setLoadingFee] = useState(false);
+  const [tipAmount, setTipAmount] = useState(0);
+  const [customTip, setCustomTip] = useState("");
+
+  useEffect(() => {
+    if (!cart.restaurantId || !selectedAddressId) {
+      setDeliveryFee(null);
+      return;
+    }
+    setLoadingFee(true);
+    api
+      .deliveryFeePreview(cart.restaurantId, selectedAddressId)
+      .then((res) => setDeliveryFee(res.delivery_fee))
+      .catch(() => setDeliveryFee(null))
+      .finally(() => setLoadingFee(false));
+  }, [cart.restaurantId, selectedAddressId]);
+
+  useEffect(() => {
+    if (paymentMethod === "efectivo") {
+      setTipAmount(0);
+      setCustomTip("");
+    }
+  }, [paymentMethod]);
+
   // Formulario de nueva dirección
   const [newLabel, setNewLabel] = useState("");
   const [newAddressLine, setNewAddressLine] = useState("");
@@ -84,6 +120,36 @@ export default function CarritoScreen() {
     }
   }
 
+  async function handleApplyPromo() {
+    if (!cart.restaurantId || !promoCode.trim()) return;
+    setPromoError(null);
+    setCheckingPromo(true);
+    try {
+      const result = await api.validatePromotion(cart.restaurantId, promoCode.trim());
+      if (result.valid && result.discount_type && result.discount_value != null) {
+        setAppliedPromo({
+          code: result.code || promoCode.trim().toUpperCase(),
+          discount_type: result.discount_type,
+          discount_value: result.discount_value,
+        });
+      } else {
+        setAppliedPromo(null);
+        setPromoError(result.reason || "Cupón no válido");
+      }
+    } catch (err) {
+      setAppliedPromo(null);
+      setPromoError(err instanceof ApiError ? err.message : "No se pudo validar el cupón");
+    } finally {
+      setCheckingPromo(false);
+    }
+  }
+
+  const discountAmount = appliedPromo
+    ? appliedPromo.discount_type === "percentage"
+      ? Math.round((cart.total * appliedPromo.discount_value) / 100)
+      : Math.min(appliedPromo.discount_value, cart.total + (deliveryFee ?? 0))
+    : 0;
+
   async function handlePlaceOrder() {
     if (!cart.restaurantId) return;
     if (!selectedAddressId) {
@@ -101,6 +167,8 @@ export default function CarritoScreen() {
           quantity: i.quantity,
           notes: i.notes,
         })),
+        promo_code: appliedPromo?.code,
+        tip_amount: tipAmount,
       });
 
       if (paymentMethod === "efectivo") {
@@ -138,7 +206,7 @@ export default function CarritoScreen() {
     }
   }
 
-  const deliveryFeeEstimate = 5000;
+  const effectiveDeliveryFee = deliveryFee ?? 0;
 
   return (
     <View style={styles.container}>
@@ -162,13 +230,61 @@ export default function CarritoScreen() {
                 <Text style={styles.summaryValue}>${cart.total.toLocaleString()}</Text>
               </View>
               <View style={styles.summaryRow}>
-                <Text style={styles.summaryLabel}>Domicilio (aprox.)</Text>
-                <Text style={styles.summaryValue}>${deliveryFeeEstimate.toLocaleString()}</Text>
+                <Text style={styles.summaryLabel}>Domicilio</Text>
+                <Text style={styles.summaryValue}>
+                  {!selectedAddressId
+                    ? "Elige una dirección"
+                    : loadingFee
+                      ? "Calculando..."
+                      : `$${effectiveDeliveryFee.toLocaleString()}`}
+                </Text>
               </View>
+
+              <Text style={styles.sectionTitle}>Cupón de descuento</Text>
+              {appliedPromo ? (
+                <View style={styles.promoAppliedRow}>
+                  <Text style={styles.promoAppliedText}>✓ Cupón "{appliedPromo.code}" aplicado</Text>
+                  <TouchableOpacity
+                    onPress={() => {
+                      setAppliedPromo(null);
+                      setPromoCode("");
+                      setPromoError(null);
+                    }}
+                  >
+                    <Text style={styles.promoRemoveText}>Quitar</Text>
+                  </TouchableOpacity>
+                </View>
+              ) : (
+                <View style={styles.promoRow}>
+                  <TextInput
+                    style={styles.promoInput}
+                    placeholder="Código de cupón"
+                    autoCapitalize="characters"
+                    value={promoCode}
+                    onChangeText={setPromoCode}
+                  />
+                  <TouchableOpacity
+                    style={styles.promoButton}
+                    onPress={handleApplyPromo}
+                    disabled={checkingPromo || !promoCode.trim()}
+                  >
+                    <Text style={styles.promoButtonText}>{checkingPromo ? "..." : "Aplicar"}</Text>
+                  </TouchableOpacity>
+                </View>
+              )}
+              {promoError && <Text style={styles.promoErrorText}>{promoError}</Text>}
+
+              {discountAmount > 0 && (
+                <View style={styles.summaryRow}>
+                  <Text style={styles.summaryLabel}>Descuento</Text>
+                  <Text style={styles.discountValue}>-${discountAmount.toLocaleString()}</Text>
+                </View>
+              )}
+
               <View style={[styles.summaryRow, { marginTop: 4 }]}>
                 <Text style={styles.totalLabel}>Total estimado</Text>
                 <Text style={styles.totalValue}>
-                  ${(cart.total + deliveryFeeEstimate).toLocaleString()}
+                  ${(cart.total + effectiveDeliveryFee - discountAmount + tipAmount).toLocaleString()}
                 </Text>
               </View>
 
@@ -206,6 +322,44 @@ export default function CarritoScreen() {
                   </TouchableOpacity>
                 ))}
               </View>
+
+              {paymentMethod !== "efectivo" && (
+                <>
+                  <Text style={styles.sectionTitle}>Propina para el domiciliario (opcional)</Text>
+                  <View style={styles.tipRow}>
+                    {[0, 2000, 3000, 5000].map((amount) => (
+                      <TouchableOpacity
+                        key={amount}
+                        style={[styles.tipChip, tipAmount === amount && !customTip && styles.tipChipSelected]}
+                        onPress={() => {
+                          setTipAmount(amount);
+                          setCustomTip("");
+                        }}
+                      >
+                        <Text
+                          style={[
+                            styles.tipChipText,
+                            tipAmount === amount && !customTip && styles.tipChipTextSelected,
+                          ]}
+                        >
+                          {amount === 0 ? "Sin propina" : `$${amount.toLocaleString()}`}
+                        </Text>
+                      </TouchableOpacity>
+                    ))}
+                  </View>
+                  <TextInput
+                    style={styles.tipCustomInput}
+                    placeholder="Otro monto"
+                    keyboardType="numeric"
+                    value={customTip}
+                    onChangeText={(text) => {
+                      setCustomTip(text);
+                      const parsed = parseInt(text, 10);
+                      setTipAmount(Number.isFinite(parsed) && parsed > 0 ? parsed : 0);
+                    }}
+                  />
+                </>
+              )}
             </View>
           ) : null
         }
@@ -266,6 +420,49 @@ const styles = StyleSheet.create({
   summaryValue: { color: "#0f172a" },
   totalLabel: { fontSize: 16, fontWeight: "700" },
   totalValue: { fontSize: 16, fontWeight: "700", color: "#16a34a" },
+  promoRow: { flexDirection: "row", gap: 8, marginTop: 4 },
+  promoInput: {
+    flex: 1,
+    borderWidth: 1,
+    borderColor: "#e2e8f0",
+    borderRadius: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    fontSize: 14,
+  },
+  promoButton: { backgroundColor: "#16a34a", borderRadius: 8, paddingHorizontal: 16, justifyContent: "center" },
+  promoButtonText: { color: "#fff", fontWeight: "600", fontSize: 13 },
+  promoAppliedRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    backgroundColor: "#f0fdf4",
+    borderRadius: 8,
+    padding: 10,
+  },
+  promoAppliedText: { color: "#16a34a", fontWeight: "600", fontSize: 13 },
+  promoRemoveText: { color: "#64748b", fontSize: 13 },
+  promoErrorText: { color: "#dc2626", fontSize: 12, marginTop: 4 },
+  tipRow: { flexDirection: "row", flexWrap: "wrap", gap: 8, marginBottom: 8 },
+  tipChip: {
+    borderWidth: 1,
+    borderColor: "#e2e8f0",
+    borderRadius: 20,
+    paddingVertical: 8,
+    paddingHorizontal: 14,
+  },
+  tipChipSelected: { backgroundColor: "#16a34a", borderColor: "#16a34a" },
+  tipChipText: { fontSize: 13, color: "#334155", fontWeight: "600" },
+  tipChipTextSelected: { color: "#fff" },
+  tipCustomInput: {
+    borderWidth: 1,
+    borderColor: "#e2e8f0",
+    borderRadius: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    fontSize: 14,
+  },
+  discountValue: { fontSize: 14, fontWeight: "600", color: "#dc2626" },
   sectionTitle: { fontSize: 15, fontWeight: "700", marginTop: 24, marginBottom: 10 },
   addressCard: {
     borderWidth: 1,

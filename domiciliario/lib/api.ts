@@ -150,6 +150,13 @@ export const api = {
   requestWithdrawal: (input: { amount_cents: number; bank_info: string }) =>
     request<Withdrawal>("/api/wallet/withdrawals", { method: "POST", body: JSON.stringify(input) }),
   myWithdrawals: () => request<Withdrawal[]>("/api/wallet/withdrawals/mine"),
+
+  // --- Bonos ---
+  redeemBonus: (code: string) =>
+    request<{ valid: boolean; reason: string | null; amount_credited_cents: number | null }>(
+      `/api/promotions/redeem-bonus?code=${encodeURIComponent(code)}`,
+      { method: "POST" }
+    ),
 };
 
 export function wsUrl(path: string, token: string): string {
@@ -247,4 +254,11 @@ export interface Withdrawal {
   status: "pendiente" | "completado" | "rechazado";
   requested_at: string;
   processed_at: string | null;
+}
+
+export async function registerPushToken(expoPushToken: string) {
+  return request<void>("/api/users/me/push-token", {
+    method: "PATCH",
+    body: JSON.stringify({ expo_push_token: expoPushToken }),
+  });
 }

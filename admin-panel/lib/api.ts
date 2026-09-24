@@ -25,6 +25,20 @@ export function isAuthenticated(): boolean {
   return !!getToken();
 }
 
+function extractErrorMessage(body: unknown): string {
+  const detail = (body as { detail?: unknown })?.detail;
+  if (typeof detail === "string") return detail;
+  if (Array.isArray(detail)) {
+    return detail
+      .map((e) => (typeof e === "object" && e && "msg" in e ? String((e as { msg: unknown }).msg) : JSON.stringify(e)))
+      .join("; ");
+  }
+  if (detail && typeof detail === "object") {
+    return "msg" in detail ? String((detail as { msg: unknown }).msg) : JSON.stringify(detail);
+  }
+  return "Error en la solicitud";
+}
+
 async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
   const token = getToken();
   const headers: Record<string, string> = {
@@ -45,7 +59,7 @@ async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
     let detail = "Error en la solicitud";
     try {
       const body = await res.json();
-      detail = body.detail || detail;
+      detail = extractErrorMessage(body);
     } catch {
       /* ignore */
     }
@@ -78,6 +92,31 @@ export const api = {
     }>("/api/admin/stats"),
 
   pendingRestaurants: () => request<Restaurant[]>("/api/admin/restaurants/pending"),
+  allRestaurants: () => request<Restaurant[]>("/api/admin/restaurants"),
+  getRestaurant: (id: string) => request<Restaurant>(`/api/restaurants/${id}`),
+  updateRestaurant: (id: string, data: Partial<Pick<Restaurant, "name" | "description"> & { logo_url: string; cover_photo_url: string }>) =>
+    request<Restaurant>(`/api/admin/restaurants/${id}`, { method: "PATCH", body: JSON.stringify(data) }),
+  uploadImage: async (file: File): Promise<{ url: string }> => {
+    const dataBase64 = await new Promise<string>((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => {
+        const result = reader.result as string;
+        resolve(result.split(",")[1] ?? "");
+      };
+      reader.onerror = () => reject(new Error("No se pudo leer el archivo"));
+      reader.readAsDataURL(file);
+    });
+    return request<{ url: string }>("/api/uploads/image-base64", {
+      method: "POST",
+      body: JSON.stringify({
+        filename: file.name,
+        content_type: file.type || "image/jpeg",
+        data_base64: dataBase64,
+      }),
+    });
+  },
+  createRestaurant: (data: NewRestaurantData) =>
+    request<Restaurant>("/api/admin/restaurants", { method: "POST", body: JSON.stringify(data) }),
   approveRestaurant: (id: string) =>
     request<Restaurant>(`/api/admin/restaurants/${id}/approve`, { method: "PATCH" }),
   rejectRestaurant: (id: string) =>
@@ -105,7 +144,57 @@ export const api = {
     request<WithdrawalAdmin>(`/api/admin/withdrawals/${id}/complete`, { method: "PATCH" }),
   rejectWithdrawal: (id: string) =>
     request<WithdrawalAdmin>(`/api/admin/withdrawals/${id}/reject`, { method: "PATCH" }),
+
+  listReports: () => request<Report[]>("/api/admin/reports"),
+  updateReportStatus: (id: string, status: Report["status"]) =>
+    request<Report>(`/api/admin/reports/${id}`, { method: "PATCH", body: JSON.stringify({ status }) }),
+  createReport: (data: { order_id?: string; reason: string; description?: string }) =>
+    request<Report>("/api/reports", { method: "POST", body: JSON.stringify(data) }),
+
+  listPromotions: () => request<Promotion[]>("/api/admin/promotions"),
+  createPromotion: (data: NewPromotionData) =>
+    request<Promotion>("/api/admin/promotions", { method: "POST", body: JSON.stringify(data) }),
+  approvePromotion: (id: string) =>
+    request<Promotion>(`/api/admin/promotions/${id}/approve`, { method: "PATCH" }),
+  disapprovePromotion: (id: string) =>
+    request<Promotion>(`/api/admin/promotions/${id}/disapprove`, { method: "PATCH" }),
 };
+
+export interface Promotion {
+  id: string;
+  restaurant_id: string | null;
+  code: string | null;
+  description: string | null;
+  discount_type: "percentage" | "fixed";
+  discount_value: number;
+  starts_at: string | null;
+  ends_at: string | null;
+  is_active: boolean;
+  target_business_type: string | null;
+  target_audience: "cliente" | "comercio" | "domiciliario";
+}
+
+export interface NewPromotionData {
+  code: string;
+  description?: string;
+  discount_type: "percentage" | "fixed";
+  discount_value: number;
+  starts_at?: string;
+  ends_at?: string;
+  target_audience: "cliente" | "comercio" | "domiciliario";
+  target_business_type?: string | null;
+}
+
+export interface Report {
+  id: string;
+  order_id: string | null;
+  reported_by: string;
+  reason: string;
+  description: string | null;
+  status: "abierto" | "en_revision" | "resuelto" | "descartado";
+  created_at: string;
+  resolved_at: string | null;
+}
 
 // --- Tipos ---
 
@@ -113,10 +202,26 @@ export interface Restaurant {
   id: string;
   owner_id: string;
   name: string;
+  business_type: "restaurante" | "supermercado" | "farmacia" | "tienda" | "mascota" | "belleza";
   description: string | null;
   address_line: string;
   approval_status: "pending" | "approved" | "rejected" | "suspended";
   is_open: boolean;
+  logo_url: string | null;
+  cover_photo_url: string | null;
+}
+
+export interface NewRestaurantData {
+  owner_email: string;
+  owner_password: string;
+  owner_full_name: string;
+  owner_phone?: string;
+  name: string;
+  business_type: Restaurant["business_type"];
+  description?: string;
+  address_line: string;
+  latitude: number;
+  longitude: number;
 }
 
 export interface DeliveryPerson {

@@ -11,10 +11,11 @@ import {
   Alert,
   ActivityIndicator,
 } from "react-native";
-import { useFocusEffect } from "expo-router";
+import { useFocusEffect, useRouter } from "expo-router";
 import { api, Product, Restaurant, ApiError } from "@/lib/api";
 
 export default function MenuScreen() {
+  const router = useRouter();
   const [restaurant, setRestaurant] = useState<Restaurant | null>(null);
   const [products, setProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
@@ -101,6 +102,9 @@ export default function MenuScreen() {
     return (
       <View style={styles.center}>
         <Text style={styles.empty}>No encontramos tu comercio todavía.</Text>
+        <TouchableOpacity style={styles.registerButton} onPress={() => router.push("/restaurante/nuevo")}>
+          <Text style={styles.registerButtonText}>+ Registrar mi comercio</Text>
+        </TouchableOpacity>
       </View>
     );
   }
@@ -172,6 +176,14 @@ const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: "#fff" },
   center: { flex: 1, justifyContent: "center", alignItems: "center" },
   empty: { textAlign: "center", color: "#94a3b8", marginTop: 40 },
+  registerButton: {
+    backgroundColor: "#0F766E",
+    borderRadius: 12,
+    paddingVertical: 14,
+    paddingHorizontal: 24,
+    marginTop: 20,
+  },
+  registerButtonText: { color: "#fff", fontWeight: "700", fontSize: 15 },
   productCard: {
     flexDirection: "row",
     borderWidth: 1,

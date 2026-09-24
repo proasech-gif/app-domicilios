@@ -10,6 +10,8 @@ interface Stats {
   delivered_orders: number;
   cancelled_orders: number;
   total_revenue: number;
+  total_commission: number;
+  pending_cash_debt_cents: number;
 }
 
 export default function DashboardHome() {
@@ -36,6 +38,11 @@ export default function DashboardHome() {
           <StatCard label="Entregados" value={stats.delivered_orders} />
           <StatCard label="Cancelados" value={stats.cancelled_orders} />
           <StatCard label="Ingresos (entregados)" value={`$${stats.total_revenue.toLocaleString()}`} />
+          <StatCard label="Comisión ganada (app)" value={`$${stats.total_commission.toLocaleString()}`} />
+          <StatCard
+            label="Efectivo pendiente de domiciliarios"
+            value={`$${(stats.pending_cash_debt_cents / 100).toLocaleString()}`}
+          />
         </div>
       ) : (
         !error && <p className="text-sm text-slate-500">Cargando…</p>

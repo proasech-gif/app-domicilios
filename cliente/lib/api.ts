@@ -119,7 +119,23 @@ export const api = {
     payment_method: "efectivo" | "tarjeta" | "billetera_digital";
     items: { product_id: string; quantity: number; notes?: string }[];
     notes?: string;
+    promo_code?: string;
+    tip_amount?: number;
   }) => request<Order>("/api/orders", { method: "POST", body: JSON.stringify(input) }),
+
+  deliveryFeePreview: (restaurantId: string, addressId: string) =>
+    request<{ delivery_fee: number; distance_km: number }>(
+      `/api/orders/delivery-fee-preview?restaurant_id=${restaurantId}&address_id=${addressId}`
+    ),
+
+  validatePromotion: (restaurantId: string, code: string) =>
+    request<{
+      valid: boolean;
+      reason: string | null;
+      code: string | null;
+      discount_type: "percentage" | "fixed" | null;
+      discount_value: number | null;
+    }>(`/api/promotions/validate?code=${encodeURIComponent(code)}&restaurant_id=${restaurantId}`),
 
   myOrders: () => request<Order[]>("/api/orders/mine"),
   order: (id: string) => request<Order>(`/api/orders/${id}`),
@@ -132,7 +148,22 @@ export const api = {
     }),
   paymentStatus: (orderId: string) =>
     request<{ status: string }>(`/api/payments/orders/${orderId}/status`),
+
+  createRating: (orderId: string, input: { target_type: "restaurant" | "delivery_person"; target_id: string; score: number; comment?: string }) =>
+    request<Rating>(`/api/orders/${orderId}/ratings`, { method: "POST", body: JSON.stringify(input) }),
+  orderRatings: (orderId: string) => request<Rating[]>(`/api/orders/${orderId}/ratings`),
 };
+
+export interface Rating {
+  id: string;
+  order_id: string;
+  rater_id: string;
+  target_type: "restaurant" | "delivery_person";
+  target_id: string;
+  score: number;
+  comment: string | null;
+  created_at: string;
+}
 
 export function wsUrl(path: string, token: string): string {
   const base = API_URL.replace(/^http/, "ws");
@@ -149,7 +180,7 @@ export interface User {
   role: string;
 }
 
-export type BusinessType = "restaurante" | "supermercado" | "farmacia" | "tienda";
+export type BusinessType = "restaurante" | "supermercado" | "farmacia" | "tienda" | "mascota" | "belleza";
 
 export interface Restaurant {
   id: string;
@@ -162,6 +193,8 @@ export interface Restaurant {
   address_line: string;
   approval_status: string;
   is_open: boolean;
+  average_rating: number | null;
+  total_ratings: number;
 }
 
 export interface Category {
@@ -222,4 +255,11 @@ export interface ChatMessage {
   sender_id: string;
   message: string;
   sent_at: string;
+}
+
+export async function registerPushToken(expoPushToken: string) {
+  return request<void>("/api/users/me/push-token", {
+    method: "PATCH",
+    body: JSON.stringify({ expo_push_token: expoPushToken }),
+  });
 }

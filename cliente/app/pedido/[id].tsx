@@ -12,7 +12,7 @@ import {
 } from "react-native";
 import { useLocalSearchParams, useFocusEffect } from "expo-router";
 import * as WebBrowser from "expo-web-browser";
-import { api, getToken, wsUrl, Order, ChatMessage, ApiError } from "@/lib/api";
+import { api, getToken, wsUrl, Order, ChatMessage, ApiError, Rating } from "@/lib/api";
 
 const PAYMENT_STATUS_LABELS: Record<string, string> = {
   pendiente: "Pago pendiente",
@@ -53,6 +53,15 @@ export default function PedidoDetalleScreen() {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [messageText, setMessageText] = useState("");
   const [retryingPayment, setRetryingPayment] = useState(false);
+
+  // Calificaciones
+  const [ratings, setRatings] = useState<Rating[]>([]);
+  const [restaurantScore, setRestaurantScore] = useState(0);
+  const [restaurantComment, setRestaurantComment] = useState("");
+  const [submittingRestaurant, setSubmittingRestaurant] = useState(false);
+  const [deliveryScore, setDeliveryScore] = useState(0);
+  const [deliveryComment, setDeliveryComment] = useState("");
+  const [submittingDelivery, setSubmittingDelivery] = useState(false);
   const ws = useRef<WebSocket | null>(null);
 
   const loadOrder = useCallback(async () => {
@@ -61,6 +70,13 @@ export default function PedidoDetalleScreen() {
       const [orderData, messagesData] = await Promise.all([api.order(id), api.orderMessages(id)]);
       setOrder(orderData);
       setMessages(messagesData);
+      if (orderData.status === "entregado") {
+        try {
+          setRatings(await api.orderRatings(id));
+        } catch {
+          /* si falla, simplemente no se muestran calificaciones previas */
+        }
+      }
     } catch {
       /* se reintenta con el polling/websocket */
     }
@@ -143,6 +159,42 @@ export default function PedidoDetalleScreen() {
     }
   }
 
+  async function handleRateRestaurant() {
+    if (!order || restaurantScore === 0) return;
+    setSubmittingRestaurant(true);
+    try {
+      const rating = await api.createRating(order.id, {
+        target_type: "restaurant",
+        target_id: order.restaurant_id,
+        score: restaurantScore,
+        comment: restaurantComment.trim() || undefined,
+      });
+      setRatings((prev) => [...prev, rating]);
+    } catch (err) {
+      Alert.alert("Error", err instanceof ApiError ? err.message : "No se pudo enviar tu calificación");
+    } finally {
+      setSubmittingRestaurant(false);
+    }
+  }
+
+  async function handleRateDelivery() {
+    if (!order || !order.delivery_person_id || deliveryScore === 0) return;
+    setSubmittingDelivery(true);
+    try {
+      const rating = await api.createRating(order.id, {
+        target_type: "delivery_person",
+        target_id: order.delivery_person_id,
+        score: deliveryScore,
+        comment: deliveryComment.trim() || undefined,
+      });
+      setRatings((prev) => [...prev, rating]);
+    } catch (err) {
+      Alert.alert("Error", err instanceof ApiError ? err.message : "No se pudo enviar tu calificación");
+    } finally {
+      setSubmittingDelivery(false);
+    }
+  }
+
   if (!order) {
     return (
       <View style={styles.center}>
@@ -198,6 +250,91 @@ export default function PedidoDetalleScreen() {
         )}
       </View>
 
+      {order.status === "entregado" && (
+        <View style={styles.ratingSection}>
+          <Text style={styles.ratingTitle}>Califica tu pedido</Text>
+
+          {(() => {
+            const existingRestaurantRating = ratings.find((r) => r.target_type === "restaurant");
+            if (existingRestaurantRating) {
+              return (
+                <View style={styles.ratingDoneBox}>
+                  <Text style={styles.ratingDoneLabel}>Comercio</Text>
+                  <Text style={styles.ratingStars}>{"⭐".repeat(existingRestaurantRating.score)}</Text>
+                </View>
+              );
+            }
+            return (
+              <View style={styles.ratingBox}>
+                <Text style={styles.ratingLabel}>¿Cómo estuvo el comercio?</Text>
+                <View style={styles.starsRow}>
+                  {[1, 2, 3, 4, 5].map((n) => (
+                    <TouchableOpacity key={n} onPress={() => setRestaurantScore(n)}>
+                      <Text style={styles.star}>{n <= restaurantScore ? "⭐" : "☆"}</Text>
+                    </TouchableOpacity>
+                  ))}
+                </View>
+                <TextInput
+                  style={styles.ratingInput}
+                  placeholder="Comentario (opcional)"
+                  value={restaurantComment}
+                  onChangeText={setRestaurantComment}
+                />
+                <TouchableOpacity
+                  style={[styles.ratingSubmit, restaurantScore === 0 && styles.ratingSubmitDisabled]}
+                  onPress={handleRateRestaurant}
+                  disabled={restaurantScore === 0 || submittingRestaurant}
+                >
+                  <Text style={styles.ratingSubmitText}>
+                    {submittingRestaurant ? "Enviando..." : "Enviar calificación"}
+                  </Text>
+                </TouchableOpacity>
+              </View>
+            );
+          })()}
+
+          {order.delivery_person_id &&
+            (() => {
+              const existingDeliveryRating = ratings.find((r) => r.target_type === "delivery_person");
+              if (existingDeliveryRating) {
+                return (
+                  <View style={styles.ratingDoneBox}>
+                    <Text style={styles.ratingDoneLabel}>Domiciliario</Text>
+                    <Text style={styles.ratingStars}>{"⭐".repeat(existingDeliveryRating.score)}</Text>
+                  </View>
+                );
+              }
+              return (
+                <View style={styles.ratingBox}>
+                  <Text style={styles.ratingLabel}>¿Cómo estuvo el domiciliario?</Text>
+                  <View style={styles.starsRow}>
+                    {[1, 2, 3, 4, 5].map((n) => (
+                      <TouchableOpacity key={n} onPress={() => setDeliveryScore(n)}>
+                        <Text style={styles.star}>{n <= deliveryScore ? "⭐" : "☆"}</Text>
+                      </TouchableOpacity>
+                    ))}
+                  </View>
+                  <TextInput
+                    style={styles.ratingInput}
+                    placeholder="Comentario (opcional)"
+                    value={deliveryComment}
+                    onChangeText={setDeliveryComment}
+                  />
+                  <TouchableOpacity
+                    style={[styles.ratingSubmit, deliveryScore === 0 && styles.ratingSubmitDisabled]}
+                    onPress={handleRateDelivery}
+                    disabled={deliveryScore === 0 || submittingDelivery}
+                  >
+                    <Text style={styles.ratingSubmitText}>
+                      {submittingDelivery ? "Enviando..." : "Enviar calificación"}
+                    </Text>
+                  </TouchableOpacity>
+                </View>
+              );
+            })()}
+        </View>
+      )}
+
       <Text style={styles.chatTitle}>Chat con el comercio / domiciliario</Text>
       <FlatList
         data={messages}
@@ -250,6 +387,35 @@ const styles = StyleSheet.create({
   paymentPending: { color: "#b45309", backgroundColor: "#fffbeb" },
   retryButton: { backgroundColor: "#16a34a", borderRadius: 8, paddingVertical: 6, paddingHorizontal: 12 },
   retryButtonText: { color: "#fff", fontWeight: "600", fontSize: 12 },
+  ratingSection: { padding: 16, borderBottomWidth: 1, borderBottomColor: "#f1f5f9", gap: 12 },
+  ratingTitle: { fontSize: 15, fontWeight: "700", color: "#0f172a" },
+  ratingBox: { backgroundColor: "#f8fafc", borderRadius: 12, padding: 14 },
+  ratingLabel: { fontSize: 13, color: "#334155", fontWeight: "600", marginBottom: 8 },
+  starsRow: { flexDirection: "row", gap: 6, marginBottom: 10 },
+  star: { fontSize: 28 },
+  ratingInput: {
+    borderWidth: 1,
+    borderColor: "#e2e8f0",
+    borderRadius: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    fontSize: 14,
+    backgroundColor: "#fff",
+    marginBottom: 10,
+  },
+  ratingSubmit: { backgroundColor: "#16a34a", borderRadius: 8, paddingVertical: 10, alignItems: "center" },
+  ratingSubmitDisabled: { backgroundColor: "#cbd5e1" },
+  ratingSubmitText: { color: "#fff", fontWeight: "700", fontSize: 13 },
+  ratingDoneBox: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    backgroundColor: "#f0fdf4",
+    borderRadius: 12,
+    padding: 14,
+  },
+  ratingDoneLabel: { fontSize: 13, color: "#16a34a", fontWeight: "700" },
+  ratingStars: { fontSize: 16 },
   chatTitle: { fontSize: 13, fontWeight: "600", color: "#64748b", paddingHorizontal: 16, paddingTop: 12 },
   messageBubble: {
     backgroundColor: "#f0fdf4",

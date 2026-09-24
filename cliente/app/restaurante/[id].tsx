@@ -53,6 +53,11 @@ export default function RestauranteScreen() {
               <Image source={{ uri: restaurant.cover_photo_url }} style={styles.cover} />
             )}
             <Text style={styles.title}>{restaurant.name}</Text>
+            {restaurant.average_rating != null && (
+              <Text style={styles.ratingText}>
+                ⭐ {restaurant.average_rating.toFixed(1)} ({restaurant.total_ratings} calificaciones)
+              </Text>
+            )}
             {restaurant.description && <Text style={styles.description}>{restaurant.description}</Text>}
             <Text style={styles.address}>{restaurant.address_line}</Text>
           </View>
@@ -124,6 +129,7 @@ const styles = StyleSheet.create({
   cover: { width: "100%", height: 140, borderRadius: 12, marginBottom: 12, backgroundColor: "#eee" },
   title: { fontSize: 22, fontWeight: "700", color: "#0f172a" },
   description: { fontSize: 14, color: "#64748b", marginTop: 4 },
+  ratingText: { fontSize: 13, color: "#b45309", marginTop: 4, fontWeight: "600" },
   address: { fontSize: 13, color: "#94a3b8", marginTop: 4 },
   categoryHeader: {
     fontSize: 13,

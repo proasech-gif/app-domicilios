@@ -13,14 +13,13 @@ import {
 import { useRouter, useFocusEffect } from "expo-router";
 import { api, Restaurant, BusinessType } from "@/lib/api";
 
-const CATEGORIES: { key: BusinessType | "mas1" | "mas2" | "mas3" | "mas"; label: string; emoji: string; color: string; businessType?: BusinessType }[] = [
+const CATEGORIES: { key: BusinessType | "mas"; label: string; emoji: string; color: string; businessType?: BusinessType }[] = [
   { key: "restaurante", label: "Restaurantes", emoji: "🍴", color: "#FF6A00", businessType: "restaurante" },
   { key: "supermercado", label: "Supermercados", emoji: "🛒", color: "#16A34A", businessType: "supermercado" },
   { key: "farmacia", label: "Farmacias", emoji: "💊", color: "#2563EB", businessType: "farmacia" },
   { key: "tienda", label: "Tiendas", emoji: "🏬", color: "#2563EB", businessType: "tienda" },
-  { key: "mas1", label: "Envíos", emoji: "📦", color: "#FF6A00" },
-  { key: "mas2", label: "Transporte", emoji: "🚗", color: "#16A34A" },
-  { key: "mas3", label: "Mascotas", emoji: "🐾", color: "#DB2777" },
+  { key: "mascota", label: "Mascotas", emoji: "🐾", color: "#DB2777", businessType: "mascota" },
+  { key: "belleza", label: "Belleza", emoji: "💅", color: "#DB2777", businessType: "belleza" },
   { key: "mas", label: "Más", emoji: "⋯", color: "#7C3AED" },
 ];
 
@@ -29,6 +28,8 @@ const CATEGORY_LABELS: Record<BusinessType, string> = {
   supermercado: "Supermercados",
   farmacia: "Farmacias",
   tienda: "Tiendas",
+  mascota: "Mascotas",
+  belleza: "Belleza",
 };
 
 export default function ComerciosScreen() {
@@ -65,7 +66,7 @@ export default function ComerciosScreen() {
 
   function handleCategoryPress(cat: (typeof CATEGORIES)[number]) {
     if (!cat.businessType) {
-      Alert.alert("Muy pronto", `${cat.label} estará disponible en una próxima actualización.`);
+      Alert.alert("Próximamente", `${cat.label} estará disponible en una próxima actualización.`);
       return;
     }
     setLoading(true);
@@ -156,6 +157,11 @@ export default function ComerciosScreen() {
             <Text style={styles.address} numberOfLines={1}>
               {item.address_line}
             </Text>
+            {item.average_rating != null && (
+              <Text style={styles.ratingText}>
+                ⭐ {item.average_rating.toFixed(1)} ({item.total_ratings})
+              </Text>
+            )}
             {!item.is_open && <Text style={styles.closedBadge}>Cerrado ahora</Text>}
           </View>
         </TouchableOpacity>
@@ -229,6 +235,7 @@ const styles = StyleSheet.create({
   name: { fontSize: 16, fontWeight: "600", color: "#0f172a" },
   address: { fontSize: 13, color: "#64748b", marginTop: 2 },
   closedBadge: { fontSize: 12, color: "#dc2626", marginTop: 4, fontWeight: "500" },
+  ratingText: { fontSize: 12, color: "#b45309", marginTop: 2, fontWeight: "600" },
   empty: { textAlign: "center", color: "#94a3b8", marginTop: 40 },
   error: { color: "#dc2626", textAlign: "center", padding: 12 },
 });

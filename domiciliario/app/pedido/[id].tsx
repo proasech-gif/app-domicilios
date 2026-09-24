@@ -138,7 +138,8 @@ export default function EntregaDetalleScreen() {
       <View style={styles.statusBox}>
         <Text style={styles.statusText}>{STATUS_LABELS[order.status] || order.status}</Text>
         <Text style={styles.total}>Total del pedido: ${order.total.toLocaleString()}</Text>
-        <Text style={styles.total}>Tu domicilio: ${order.delivery_fee.toLocaleString()}</Text>
+        <Text style={styles.total}>Domicilio: ${order.delivery_fee.toLocaleString()}</Text>
+        <Text style={styles.commissionNote}>Se te acredita menos la comisión de la plataforma.</Text>
         <Text style={styles.total}>Pago: {order.payment_method}</Text>
 
         {action && (
@@ -184,6 +185,7 @@ const styles = StyleSheet.create({
   statusBox: { padding: 16, borderBottomWidth: 1, borderBottomColor: "#f1f5f9" },
   statusText: { fontSize: 18, fontWeight: "700", color: "#0f172a" },
   total: { marginTop: 4, fontSize: 14, color: "#64748b" },
+  commissionNote: { fontSize: 11, color: "#94a3b8", marginTop: 2 },
   advanceButton: {
     backgroundColor: "#ea580c",
     borderRadius: 10,

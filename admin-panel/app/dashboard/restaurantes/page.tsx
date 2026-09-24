@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import Link from "next/link";
 import { api, Restaurant } from "@/lib/api";
 
 export default function RestaurantesPage() {
@@ -34,7 +35,23 @@ export default function RestaurantesPage() {
 
   return (
     <div>
-      <h1 className="text-2xl font-semibold text-slate-900 mb-1">Comercios pendientes de aprobación</h1>
+      <div className="flex items-center justify-between mb-1">
+        <h1 className="text-2xl font-semibold text-slate-900">Comercios pendientes de aprobación</h1>
+        <div className="flex gap-2">
+          <Link
+            href="/dashboard/restaurantes/todos"
+            className="px-4 py-2 rounded-lg border border-slate-300 text-slate-700 text-sm font-medium hover:bg-slate-50"
+          >
+            Ver todos los comercios
+          </Link>
+          <Link
+            href="/dashboard/restaurantes/nuevo"
+            className="px-4 py-2 rounded-lg bg-brand text-white text-sm font-medium hover:bg-brand-dark"
+          >
+            + Nuevo comercio
+          </Link>
+        </div>
+      </div>
       <p className="text-sm text-slate-500 mb-6">Revisa y aprueba o rechaza los comercios que se han registrado.</p>
 
       {loading && <p className="text-sm text-slate-500">Cargando…</p>}
